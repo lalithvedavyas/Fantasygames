@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>IPL Fantasy Points</title>
+  <style>
+    body { font-family: Arial; background: #f4f4f4; padding: 20px; }
+    .container {
+      max-width: 900px; margin: auto; background: #fff; padding: 20px;
+      border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    select, button { font-size: 16px; padding: 8px; margin: 5px; }
+    #totalPoints { font-weight: bold; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>IPL Fantasy Points Calculator</h1>
+
+    <label for="playerSelect">Select Player:</label>
+    <select id="playerSelect"><option>Loading...</option></select>
+    <button id="addPlayerBtn">Add Player</button>
+
+    <table id="playerTable">
+      <thead>
+        <tr>
+          <th>Player</th><th>Runs</th><th>4s</th><th>6s</th>
+          <th>Wickets</th><th>Catches</th><th>Run Outs</th><th>Stumpings</th><th>Remove</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <button id="calculatePointsBtn">Calculate Points</button>
+    <div id="totalPoints">Total Points: 0</div>
+  </div>
+
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+    // ✅ Rconst firebaseConfig = {
+  apiKey: "AIza...",
+  authDomain: "your-app.firebaseapp.com",
+  projectId: "your-app",
+  storageBucket: "your-app.appspot.com",
+  messagingSenderId: "...",
+  appId: "..."
+};
+
+ 
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const playerCollection = collection(db, "players");
+
+    async function loadPlayers() {
+      const snapshot = await getDocs(playerCollection);
+      const playerList = snapshot.docs.map(doc => doc.data().name);
+      const select = document.getElementById("playerSelect");
+      select.innerHTML = '<option value="">--Choose a Player--</option>';
+      playerList.forEach(player => {
+        const opt = document.createElement("option");
+        opt.value = opt.textContent = player;
+        select.appendChild(opt);
+      });
+    }
+
+    async function savePlayer(name) {
+      await addDoc(playerCollection, { name });
+      await loadPlayers(); // refresh dropdown
+    }
+
+    function addPlayerRow(name) {
+      const row = document.createElement("tr");
+      row.innerHTML = \`
+        <td>\${name}</td>
+        <td contenteditable="true">0</td>
+        <td contenteditable="true">0</td>
+        <td contenteditable="true">0</td>
+        <td contenteditable="true">0</td>
+        <td contenteditable="true">0</td>
+        <td contenteditable="true">0</td>
+        <td contenteditable="true">0</td>
+        <td><button onclick="this.closest('tr').remove()">Remove</button></td>
+      \`;
+      document.querySelector("#playerTable tbody").appendChild(row);
+    }
+
+    document.getElementById("addPlayerBtn").addEventListener("click", async () => {
+      const name = document.getElementById("playerSelect").value;
+      if (!name) return alert("Please select a player.");
+      addPlayerRow(name);
+      await savePlayer(name); // stores if new
+    });
+
+    document.getElementById("calculatePointsBtn").addEventListener("click", () => {
+      const rows = document.querySelectorAll("#playerTable tbody tr");
+      let total = 0;
+      rows.forEach(row => {
+        const values = Array.from(row.querySelectorAll("td")).slice(1, 8).map(td => parseInt(td.textContent) || 0);
+        total += values.reduce((a, b) => a + b, 0);
+      });
+      document.getElementById("totalPoints").textContent = "Total Points: " + total;
+    });
+
+    window.onload = loadPlayers;
+  </script>
+</body>
+</html>
