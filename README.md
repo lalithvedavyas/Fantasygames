@@ -1,1 +1,1 @@
-# lalithvedavyas.github.io
+# lalithvedavyas.github.io/games
