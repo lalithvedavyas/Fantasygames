@@ -1,1 +1,1 @@
-# lalithvedavyas.github.io/games
+# lalithvedavyas.github.io/points/
