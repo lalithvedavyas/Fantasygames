@@ -38,21 +38,20 @@
     <div id="totalPoints">Total Points: 0</div>
   </div>
 
-  <!-- Firebase SDKs -->
+  <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // ✅ Rconst firebaseConfig = {
-  apiKey: "AIza...",
-  authDomain: "your-app.firebaseapp.com",
-  projectId: "your-app",
-  storageBucket: "your-app.appspot.com",
-  messagingSenderId: "...",
-  appId: "..."
-};
-
- 
+    // ✅ Your Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAY8STnj26Si7HH4sFc_eHaiVTD6KhaHOk",
+      authDomain: "scorecard-points.firebaseapp.com",
+      projectId: "scorecard-points",
+      storageBucket: "scorecard-points.firebasestorage.app",
+      messagingSenderId: "1043203405229",
+      appId: "1:1043203405229:web:8fb2535a24fe1ccf925d24"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
@@ -71,14 +70,17 @@
     }
 
     async function savePlayer(name) {
-      await addDoc(playerCollection, { name });
-      await loadPlayers(); // refresh dropdown
+      const q = query(playerCollection, where("name", "==", name));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        await addDoc(playerCollection, { name });
+      }
     }
 
     function addPlayerRow(name) {
       const row = document.createElement("tr");
-      row.innerHTML = \`
-        <td>\${name}</td>
+      row.innerHTML = `
+        <td>${name}</td>
         <td contenteditable="true">0</td>
         <td contenteditable="true">0</td>
         <td contenteditable="true">0</td>
@@ -87,7 +89,7 @@
         <td contenteditable="true">0</td>
         <td contenteditable="true">0</td>
         <td><button onclick="this.closest('tr').remove()">Remove</button></td>
-      \`;
+      `;
       document.querySelector("#playerTable tbody").appendChild(row);
     }
 
@@ -95,7 +97,8 @@
       const name = document.getElementById("playerSelect").value;
       if (!name) return alert("Please select a player.");
       addPlayerRow(name);
-      await savePlayer(name); // stores if new
+      await savePlayer(name);
+      await loadPlayers();
     });
 
     document.getElementById("calculatePointsBtn").addEventListener("click", () => {
