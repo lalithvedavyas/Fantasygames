@@ -9,21 +9,33 @@
       max-width: 900px; margin: auto; background: #fff; padding: 20px;
       border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
+    h2 { margin-top: 40px; }
     table { width: 100%; border-collapse: collapse; margin-top: 20px; }
     th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
     th { background-color: #f2f2f2; }
-    select, button { font-size: 16px; padding: 8px; margin: 5px; }
+    select, button, input, textarea {
+      font-size: 16px; padding: 8px; margin: 5px; width: 100%;
+    }
+    button {
+      cursor: pointer; background-color: #007bff; color: white; border: none;
+      border-radius: 4px;
+    }
+    button:hover { background-color: #0056b3; }
     #totalPoints { font-weight: bold; margin-top: 20px; }
+    .success { color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>IPL Fantasy Points Calculator</h1>
 
+    <!-- Player Selection -->
     <label for="playerSelect">Select Player:</label>
     <select id="playerSelect"><option>Loading...</option></select>
-    <button id="addPlayerBtn">Add Player</button>
+    <button id="addPlayerBtn">Add to Table</button>
 
+    <!-- Player Points Table -->
     <table id="playerTable">
       <thead>
         <tr>
@@ -36,14 +48,33 @@
 
     <button id="calculatePointsBtn">Calculate Points</button>
     <div id="totalPoints">Total Points: 0</div>
+
+    <!-- Add Single Player -->
+    <h2>Add New Player</h2>
+    <input type="text" id="newPlayerName" placeholder="Enter new player name" />
+    <button id="saveNewPlayerBtn">Save Player</button>
+    <p id="saveStatus"></p>
+
+    <!-- Bulk Add Players -->
+    <h2>Bulk Add Players</h2>
+    <textarea id="bulkPlayerInput" rows="6" placeholder="One player name per line..."></textarea>
+    <button id="bulkAddBtn">Add All Players</button>
+    <p id="bulkStatus"></p>
   </div>
 
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getFirestore, collection, getDocs, addDoc, query, where } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      addDoc,
+      query,
+      where
+    } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // ✅ Your Firebase config
+    // ✅ Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAY8STnj26Si7HH4sFc_eHaiVTD6KhaHOk",
       authDomain: "scorecard-points.firebaseapp.com",
@@ -57,6 +88,7 @@
     const db = getFirestore(app);
     const playerCollection = collection(db, "players");
 
+    // Load players into dropdown
     async function loadPlayers() {
       const snapshot = await getDocs(playerCollection);
       const playerList = snapshot.docs.map(doc => doc.data().name);
@@ -69,14 +101,7 @@
       });
     }
 
-    async function savePlayer(name) {
-      const q = query(playerCollection, where("name", "==", name));
-      const snapshot = await getDocs(q);
-      if (snapshot.empty) {
-        await addDoc(playerCollection, { name });
-      }
-    }
-
+    // Add selected player to table
     function addPlayerRow(name) {
       const row = document.createElement("tr");
       row.innerHTML = `
@@ -93,14 +118,13 @@
       document.querySelector("#playerTable tbody").appendChild(row);
     }
 
-    document.getElementById("addPlayerBtn").addEventListener("click", async () => {
+    document.getElementById("addPlayerBtn").addEventListener("click", () => {
       const name = document.getElementById("playerSelect").value;
       if (!name) return alert("Please select a player.");
       addPlayerRow(name);
-      await savePlayer(name);
-      await loadPlayers();
     });
 
+    // Calculate points
     document.getElementById("calculatePointsBtn").addEventListener("click", () => {
       const rows = document.querySelectorAll("#playerTable tbody tr");
       let total = 0;
@@ -111,6 +135,73 @@
       document.getElementById("totalPoints").textContent = "Total Points: " + total;
     });
 
+    // Save single new player
+    document.getElementById("saveNewPlayerBtn").addEventListener("click", async () => {
+      const name = document.getElementById("newPlayerName").value.trim();
+      const status = document.getElementById("saveStatus");
+      if (!name) {
+        status.textContent = "Please enter a player name.";
+        status.className = "error";
+        return;
+      }
+
+      const q = query(playerCollection, where("name", "==", name));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        status.textContent = `"${name}" already exists.`;
+        status.className = "error";
+        return;
+      }
+
+      try {
+        await addDoc(playerCollection, { name });
+        status.textContent = `"${name}" added successfully.`;
+        status.className = "success";
+        document.getElementById("newPlayerName").value = "";
+        await loadPlayers(); // refresh dropdown
+      } catch (err) {
+        console.error("Error adding player:", err);
+        status.textContent = "Error adding player.";
+        status.className = "error";
+      }
+    });
+
+    // Bulk add players
+    document.getElementById("bulkAddBtn").addEventListener("click", async () => {
+      const text = document.getElementById("bulkPlayerInput").value.trim();
+      const status = document.getElementById("bulkStatus");
+      if (!text) {
+        status.textContent = "Please enter at least one player.";
+        status.className = "error";
+        return;
+      }
+
+      const names = [...new Set(text.split("\n").map(n => n.trim()).filter(n => n))];
+      let added = 0, skipped = 0;
+
+      for (const name of names) {
+        const q = query(playerCollection, where("name", "==", name));
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+          skipped++;
+          continue;
+        }
+
+        try {
+          await addDoc(playerCollection, { name });
+          added++;
+        } catch (err) {
+          console.error("Error adding player:", name, err);
+        }
+      }
+
+      status.innerHTML = `✅ Added: ${added}, ❌ Skipped (duplicates): ${skipped}`;
+      status.className = "success";
+      document.getElementById("bulkPlayerInput").value = "";
+      await loadPlayers();
+    });
+
+    // Load dropdown on start
     window.onload = loadPlayers;
   </script>
 </body>
