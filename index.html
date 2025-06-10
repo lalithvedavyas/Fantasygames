@@ -74,7 +74,6 @@
       where
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-    // ✅ Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAY8STnj26Si7HH4sFc_eHaiVTD6KhaHOk",
       authDomain: "scorecard-points.firebaseapp.com",
@@ -88,7 +87,6 @@
     const db = getFirestore(app);
     const playerCollection = collection(db, "players");
 
-    // Load players into dropdown
     async function loadPlayers() {
       const snapshot = await getDocs(playerCollection);
       const playerList = snapshot.docs.map(doc => doc.data().name);
@@ -101,7 +99,6 @@
       });
     }
 
-    // Add selected player to table
     function addPlayerRow(name) {
       const row = document.createElement("tr");
       row.innerHTML = `
@@ -124,18 +121,49 @@
       addPlayerRow(name);
     });
 
-    // Calculate points
+    // ✅ Custom Fantasy Point Calculation Logic
     document.getElementById("calculatePointsBtn").addEventListener("click", () => {
       const rows = document.querySelectorAll("#playerTable tbody tr");
       let total = 0;
+
       rows.forEach(row => {
-        const values = Array.from(row.querySelectorAll("td")).slice(1, 8).map(td => parseInt(td.textContent) || 0);
-        total += values.reduce((a, b) => a + b, 0);
+        const cells = row.querySelectorAll("td");
+        const playerName = cells[0].textContent;
+        const runs = parseInt(cells[1].textContent) || 0;
+        const fours = parseInt(cells[2].textContent) || 0;
+        const sixes = parseInt(cells[3].textContent) || 0;
+        const wickets = parseInt(cells[4].textContent) || 0;
+        const catches = parseInt(cells[5].textContent) || 0;
+        const runOuts = parseInt(cells[6].textContent) || 0;
+        const stumpings = parseInt(cells[7].textContent) || 0;
+
+        let points = 0;
+
+        // Batting Points
+        points += runs;
+        points += fours * 4;
+        points += sixes * 6;
+        if (runs >= 100) points += 16;
+        else if (runs >= 50) points += 8;
+        if (runs === 0) points -= 2;
+
+        // Bowling Points
+        points += wickets * 25;
+        if (wickets >= 5) points += 16;
+        else if (wickets >= 4) points += 8;
+
+        // Fielding Points
+        points += catches * 8;
+        if (catches >= 3) points += 4;
+        points += stumpings * 12;
+        points += runOuts * 6; // Default: not direct hit
+
+        total += points;
       });
+
       document.getElementById("totalPoints").textContent = "Total Points: " + total;
     });
 
-    // Save single new player
     document.getElementById("saveNewPlayerBtn").addEventListener("click", async () => {
       const name = document.getElementById("newPlayerName").value.trim();
       const status = document.getElementById("saveStatus");
@@ -158,7 +186,7 @@
         status.textContent = `"${name}" added successfully.`;
         status.className = "success";
         document.getElementById("newPlayerName").value = "";
-        await loadPlayers(); // refresh dropdown
+        await loadPlayers();
       } catch (err) {
         console.error("Error adding player:", err);
         status.textContent = "Error adding player.";
@@ -166,7 +194,6 @@
       }
     });
 
-    // Bulk add players
     document.getElementById("bulkAddBtn").addEventListener("click", async () => {
       const text = document.getElementById("bulkPlayerInput").value.trim();
       const status = document.getElementById("bulkStatus");
@@ -201,7 +228,6 @@
       await loadPlayers();
     });
 
-    // Load dropdown on start
     window.onload = loadPlayers;
   </script>
 </body>
